@@ -4,14 +4,13 @@ import { Container, Input, Button } from './styles/App-style';
 
 const App: React.FC = () => {
   const [city, setCity] = useState<string>('');
-  const apikey = 'dcb051be01a888c426d34d934d29f1ec';
 
   const handleClick = useCallback(async () => {
     try {
       const response = await api
         .get('/weather', {
           params: {
-            appid: apikey,
+            appid: process.env.REACT_APP_API_KEY,
             q: city,
           },
         })
