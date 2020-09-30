@@ -1,66 +1,117 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import api from './service/api';
-import { Container, Input, Button } from './styles/App-style';
+import { Container, Input, Button, WeatherBox } from './styles/App-style';
+
+interface ICityWeather {
+  condition_now: {
+    code: number;
+    icon: string;
+    text: string;
+  };
+  temp_c: string;
+  temp_max_c: string;
+  temp_min_c: string;
+  city: string;
+  region: string;
+  country: string;
+  lat: number;
+  lon: number;
+}
 
 const App: React.FC = () => {
-  const [city, setCity] = useState<string>('');
+  const [cityName, setCityName] = useState<string>('');
+  const [cityWeather, setCityWeather] = useState<ICityWeather | null>(null);
+
+  useEffect(() => {
+    const storage = localStorage.getItem('@HelloWeather:weather');
+    if (storage !== null && cityWeather === null) {
+      const city = JSON.parse(storage);
+      setCityWeather(city);
+    }
+  }, [cityWeather]);
 
   const handleClick = useCallback(async () => {
+    if (cityName.length < 1) {
+      return;
+    }
+
     try {
-      const response = await api
-        .get('/weather', {
+      const { current, forecast, location } = await api
+        .get('/forecast.json', {
           params: {
-            appid: process.env.REACT_APP_API_KEY,
-            q: city,
+            key: process.env.REACT_APP_API_KEY,
+            q: cityName,
+            days: 1,
           },
         })
         .then(res => {
           return res.data;
         });
 
-      console.log(`Esse é a response:`);
-      console.log(response);
+      const city: ICityWeather = {
+        condition_now: current.condition,
+        temp_c: [current.temp_c, 'º'].join(''),
+        temp_max_c: [forecast.forecastday[0].day.maxtemp_c, 'º'].join(''),
+        temp_min_c: [forecast.forecastday[0].day.mintemp_c, 'º'].join(''),
+        city: location.name,
+        region: location.region,
+        country: location.country,
+        lat: location.lat,
+        lon: location.lon,
+      };
+
+      setCityWeather(city);
+      setCityName('');
+      localStorage.setItem('@HelloWeather:weather', JSON.stringify(city));
     } catch (e) {
       console.log(`ocorreu um erro ao buscar a temperatura: `);
     }
-  }, [city]);
+  }, [cityName]);
 
   const handleInput = useCallback(event => {
-    setCity(event.target.value);
+    setCityName(event.target.value);
   }, []);
 
   return (
     <Container>
-      <h1>hello weather</h1>
+      <h1>Hello Weather</h1>
+      <div>
+        <Input
+          type="text"
+          placeholder="Fill city"
+          value={cityName}
+          onChange={handleInput}
+          onKeyPress={e => {
+            if (e.key === 'Enter') {
+              handleClick();
+            }
+          }}
+        />
 
-      <Input
-        type="text"
-        placeholder="Fill city"
-        onChange={handleInput}
-        onKeyPress={e => {
-          if (e.key === 'Enter') {
-            handleClick();
-          }
-        }}
-      />
-      <Button type="button" onClick={handleClick}>
-        Send
-      </Button>
+        <Button type="button" onClick={handleClick}>
+          Send
+        </Button>
+      </div>
+      {cityWeather ? (
+        <WeatherBox>
+          <h3>
+            {cityWeather?.city}
+
+            <span>{` - ${cityWeather?.country}`}</span>
+          </h3>
+          <h2> {cityWeather?.temp_c} </h2>
+
+          <img
+            src={cityWeather?.condition_now.icon}
+            alt={cityWeather?.condition_now.text}
+          />
+        </WeatherBox>
+      ) : null}
+
+      <p>{cityWeather?.region}</p>
+      <p>{cityWeather?.country}</p>
     </Container>
   );
 };
 
 export default App;
-
-/*
-EpochTime: 1600798800
-HasPrecipitation: false
-IsDayTime: true
-Link: "http://www.accuweather.com/en/br/novo-hamburgo/35731/current-weather/35731?lang=en-us"
-LocalObservationDateTime: "2020-09-22T15:20:00-03:00"
-MobileLink: "http://m.accuweather.com/en/br/novo-hamburgo/35731/current-weather/35731?lang=en-us"
-PrecipitationType: null
-Temperature: {Metric: {…}, Imperial: {…}}
-WeatherIcon: 1
-WeatherText: "Sunny"
-*/
